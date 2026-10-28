@@ -1,67 +1,44 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Threading;
-
-public record Order(int Id, decimal Amount);
 
 public class Program
 {
-    private static void ProcessOrder(Order order)
-    {
-        Console.WriteLine(
-            $"Заказ {order.Id}: поток " +
-            $"{Environment.CurrentManagedThreadId}"
-        );
-
-        Thread.Sleep(100);
-
-        decimal total = order.Amount * 1.05m;
-
-        Console.WriteLine(
-            $"Заказ {order.Id} завершён. Сумма: {total:F2}"
-        );
-    }
+    private static int completedOrders = 0;
+    private static int safeCompletedOrders = 0;
 
     public static void Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        Order[] orders =
-        {
-            new(1, 100),
-            new(2, 200),
-            new(3, 300),
-            new(4, 400),
-            new(5, 500),
-            new(6, 600),
-            new(7, 700),
-            new(8, 800)
-        };
+        const int threadCount = 8;
+        const int incrementsPerThread = 100_000;
+        int expected = threadCount * incrementsPerThread;
 
-        Console.WriteLine("Последовательная обработка");
-        Stopwatch sw = Stopwatch.StartNew();
-
-        foreach (Order order in orders)
-        {
-            ProcessOrder(order);
-        }
-
-        sw.Stop();
-        TimeSpan sequentialTime = sw.Elapsed;
+        Console.WriteLine("=== Обычный инкремент ===");
+        Run(threadCount, incrementsPerThread, () => completedOrders++);
+        Console.WriteLine($"Ожидалось: {expected}");
+        Console.WriteLine($"Получено: {completedOrders}");
 
         Console.WriteLine();
-        Console.WriteLine("Многопоточная обработка");
-        Thread[] threads = new Thread[orders.Length];
+        Console.WriteLine("=== Interlocked.Increment ===");
+        Run(threadCount, incrementsPerThread,
+            () => Interlocked.Increment(ref safeCompletedOrders));
+        Console.WriteLine($"Ожидалось: {expected}");
+        Console.WriteLine($"Получено: {safeCompletedOrders}");
+    }
 
-        sw.Restart();
+    private static void Run(int threadCount, int incrementsPerThread, Action action)
+    {
+        Thread[] threads = new Thread[threadCount];
 
-        for (int i = 0; i < orders.Length; i++)
+        for (int i = 0; i < threadCount; i++)
         {
-            Order current = orders[i];
-
             threads[i] = new Thread(() =>
             {
-                ProcessOrder(current);
+                for (int j = 0; j < incrementsPerThread; j++)
+                {
+                    action();
+                }
             });
         }
 
@@ -74,12 +51,5 @@ public class Program
         {
             thread.Join();
         }
-
-        sw.Stop();
-        TimeSpan parallelTime = sw.Elapsed;
-
-        Console.WriteLine();
-        Console.WriteLine($"Последовательно: {sequentialTime}");
-        Console.WriteLine($"Многопоточно:    {parallelTime}");
     }
 }
