@@ -41,6 +41,37 @@ var all = await s.RunParallelAsync(
     }
 );
 Check(all.Count == 3 && all.All(x => x.Success), "параллельный запуск WhenAll");
-// TODO: Добавить тесты на пустое имя, отрицательную задержку и CancellationToken.
+var emptyNameThrown = false;
+try
+{
+    await s.CheckServiceAsync("", TimeSpan.FromMilliseconds(25));
+}
+catch (ArgumentException)
+{
+    emptyNameThrown = true;
+}
+Check(emptyNameThrown, "пустое имя отклоняется");
+var negativeDelayThrown = false;
+try
+{
+    await s.CheckServiceAsync("Тест", TimeSpan.FromMilliseconds(-1));
+}
+catch (ArgumentOutOfRangeException)
+{
+    negativeDelayThrown = true;
+}
+Check(negativeDelayThrown, "отрицательная задержка отклоняется");
+var cancelled = false;
+using var cts = new CancellationTokenSource();
+cts.Cancel();
+try
+{
+    await s.CheckServiceAsync("Тест", TimeSpan.FromSeconds(5), cts.Token);
+}
+catch (OperationCanceledException)
+{
+    cancelled = true;
+}
+Check(cancelled, "отмена через CancellationToken");
 Console.WriteLine($"Итого: {passed} пройдено, {failed} ошибок.");
 return failed == 0 ? 0 : 1;
