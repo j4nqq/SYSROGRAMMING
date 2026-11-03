@@ -43,4 +43,23 @@ public sealed class BankAccount
             _balance += amount;
         }
     }
+
+    public bool Withdraw(decimal amount)
+    {
+        if (amount <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount));
+        }
+
+        lock (_sync)
+        {
+            if (_balance < amount)
+            {
+                return false;
+            }
+
+            _balance -= amount;
+            return true;
+        }
+    }
 }

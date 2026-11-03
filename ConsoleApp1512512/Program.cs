@@ -1,4 +1,4 @@
-﻿using BankRaceCondition.Models;
+using BankRaceCondition.Models;
 using BankRaceCondition.Services;
 
 const int workers = 10;
@@ -29,3 +29,18 @@ Console.WriteLine($"Начальный баланс: {safeAccount.Balance}");
 await simulator.RunSafeAsync(safeAccount, workers, operations, amount);
 Console.WriteLine($"Фактический баланс: {safeAccount.Balance}");
 Console.WriteLine($"Разница: {expected - safeAccount.Balance}");
+
+Console.WriteLine();
+Console.WriteLine("WITHDRAW TEST");
+
+var withdrawalAccount = new BankAccount();
+withdrawalAccount.Deposit(1000);
+
+int successfulWithdrawals = await simulator.RunWithdrawalsAsync(
+    withdrawalAccount,
+    workers: 10,
+    operationsPerWorker: 100,
+    amount: 100);
+
+Console.WriteLine($"Успешных списаний: {successfulWithdrawals}");
+Console.WriteLine($"Остаток: {withdrawalAccount.Balance}");
