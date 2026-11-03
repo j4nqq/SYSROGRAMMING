@@ -25,15 +25,22 @@ using var cts = new CancellationTokenSource();
 
 Task<ScanSummary> scanTask = scanner.ScanAsync(
     options,
-    cts.Token);
+    cts.Token,
+    result => Console.WriteLine(
+        $"{result.FileName,-30} " +
+        $"{result.SizeBytes,12} байт " +
+        $"прочитано: {result.BytesRead}"));
 
 Console.WriteLine();
 Console.WriteLine("Сканирование запущено.");
 Console.WriteLine("Нажмите Enter для отмены.");
+Console.WriteLine();
 
-Console.ReadLine();
+Task cancelTask = Task.Run(Console.ReadLine);
+await Task.WhenAny(scanTask, cancelTask);
 
-cts.Cancel();
+if (!scanTask.IsCompleted)
+    cts.Cancel();
 
 try
 {
@@ -41,14 +48,6 @@ try
 
     Console.WriteLine();
     Console.WriteLine("Сканирование завершено.");
-
-    foreach (var result in summary.Results)
-    {
-        Console.WriteLine(
-            $"{result.FileName,-30} " +
-            $"{result.SizeBytes,12} байт " +
-            $"прочитано: {result.BytesRead}");
-    }
 
     Console.WriteLine();
     Console.WriteLine($"Обработано: {summary.ScannedFiles}");
@@ -61,5 +60,10 @@ try
 }
 catch (OperationCanceledException)
 {
-    Console.WriteLine("Сканирование отменено.");
+    Console.WriteLine();
+    Console.WriteLine("Сканирование отменено пользователем.");
+}
+catch (Exception ex) when (ex is ArgumentException or DirectoryNotFoundException)
+{
+    Console.WriteLine($"Ошибка: {ex.Message}");
 }
