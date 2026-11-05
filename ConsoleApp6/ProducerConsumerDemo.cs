@@ -2,76 +2,90 @@ using System.Collections.Concurrent;
 
 namespace SynchronizationPrimitives;
 
-public class ProducerConsumerDemo
+public class ProducerConsumerDemo : IDisposable
 {
-    private const int ProducersCount = 3;
-    private const int ItemsPerProducer = 5;
+    private const int ProducersCount = 4;
+    private const int ItemsPerProducer = 10;
+    private const int ProcessingDelayMs = 1000;
 
     private readonly ConcurrentQueue<int> _queue = new();
-    private readonly AutoResetEvent _dataReady = new(false);
 
-    private int _producersLeft = ProducersCount;
-    private int _consumed;
+    private readonly AutoResetEvent _signal = new(false);
+
+    private int _processedCount;
 
     public async Task RunAsync()
     {
-        Console.WriteLine("=== PRODUCER / CONSUMER DEMO ===");
+        Console.WriteLine();
+        Console.WriteLine("=== PRODUCER-CONSUMER DEMO ===");
 
         Task consumer = Task.Run(Consume);
 
         Task[] producers = Enumerable.Range(1, ProducersCount)
-            .Select(id => Task.Run(() => ProduceAsync(id)))
+            .Select(id => Task.Run(() => Produce(id, ItemsPerProducer)))
             .ToArray();
 
         await Task.WhenAll(producers);
+
+        _queue.Enqueue(-1);
+
+        _signal.Set();
+
         await consumer;
 
-        _dataReady.Dispose();
-
-        Console.WriteLine($"Обработано элементов: {_consumed} из {ProducersCount * ItemsPerProducer}");
+        Console.WriteLine();
+        Console.WriteLine($"Обработано элементов: {_processedCount}");
     }
 
-    private async Task ProduceAsync(int producerId)
+    private void Produce(int producerId, int count)
     {
-        try
+        for (int i = 1; i <= count; i++)
         {
-            for (int i = 1; i <= ItemsPerProducer; i++)
-            {
-                int item = producerId * 100 + i;
+            int value = producerId * 100 + i;
 
-                await Task.Delay(Random.Shared.Next(100, 500));
+            _queue.Enqueue(value);
 
-                _queue.Enqueue(item);
-                Console.WriteLine($"Производитель {producerId}: добавил {item}");
+            Console.WriteLine(
+                $"Производитель {producerId}: создал {value}");
 
-                _dataReady.Set();
-            }
+            _signal.Set();
+
+            Thread.Sleep(Random.Shared.Next(100, 400));
         }
-        finally
-        {
-            if (Interlocked.Decrement(ref _producersLeft) == 0)
-                _dataReady.Set();
-        }
+
+        Console.WriteLine(
+            $"Производитель {producerId}: завершил работу");
     }
 
     private void Consume()
     {
-        Console.WriteLine("Потребитель: ожидает данные");
-
         while (true)
         {
-            _dataReady.WaitOne();
+            _signal.WaitOne();
 
-            while (_queue.TryDequeue(out int item))
+            while (_queue.TryDequeue(out int value))
             {
-                Console.WriteLine($"Потребитель: получил {item}");
-                Interlocked.Increment(ref _consumed);
+                if (value == -1)
+                {
+                    Console.WriteLine("Потребитель завершает работу.");
+                    return;
+                }
+
+                if (value > 250)
+                    Console.WriteLine("Высокоприоритетная задача");
+
+                Console.WriteLine(
+                    $"Потребитель обработал: {value}");
+
+                Interlocked.Increment(ref _processedCount);
+
+                Thread.Sleep(ProcessingDelayMs);
             }
-
-            if (Volatile.Read(ref _producersLeft) == 0 && _queue.IsEmpty)
-                break;
         }
+    }
 
-        Console.WriteLine("Потребитель: все производители завершили работу");
+    public void Dispose()
+    {
+        _signal.Dispose();
     }
 }

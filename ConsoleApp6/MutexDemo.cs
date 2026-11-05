@@ -2,63 +2,40 @@ namespace SynchronizationPrimitives;
 
 public class MutexDemo
 {
-    private const string MutexName = "Global\\SynchronizationPrimitivesMutex";
-
-    public void Run()
+    public static void Run()
     {
-        Console.WriteLine("=== MUTEX DEMO ===");
+        Console.WriteLine(" === MUTEX Демо ===");
 
-        using ManualResetEventSlim ownerReady = new(false);
-        using ManualResetEventSlim ownerCanFinish = new(false);
+        using Mutex mutex = new(
+            initiallyOwned: false,
+            name: "Local\\SynchronizationPrimitivesDemo"
+        );
 
-        Thread owner = new(() =>
-        {
-            using Mutex mutex = new(false, MutexName);
-            mutex.WaitOne();
-
-            try
-            {
-                Console.WriteLine("Первый участник: захватил Mutex");
-                ownerReady.Set();
-                ownerCanFinish.Wait();
-            }
-            finally
-            {
-                mutex.ReleaseMutex();
-                Console.WriteLine("Первый участник: освободил Mutex");
-            }
-        });
-
-        owner.Start();
-        ownerReady.Wait();
-
-        using Mutex mutex = new(false, MutexName);
-
-        TryEnter(mutex, "Второй участник (пока занято)");
-
-        ownerCanFinish.Set();
-        owner.Join();
-
-        TryEnter(mutex, "Второй участник (после освобождения)");
-    }
-
-    private static void TryEnter(Mutex mutex, string name)
-    {
         bool acquired = mutex.WaitOne(0);
 
         if (!acquired)
         {
-            Console.WriteLine($"{name}: ресурс занят");
+            Console.WriteLine(
+                "Другой экземпляр приложения уже работает."
+            );
             return;
         }
 
         try
         {
-            Console.WriteLine($"{name}: получил доступ к ресурсу");
+            Console.WriteLine(
+                "Блокировка получена. Ресурс занят."
+            );
+            Console.WriteLine(
+                "Нажмите Enter для освобождения блокировки."
+            );
+
+            Console.ReadLine();
         }
         finally
         {
             mutex.ReleaseMutex();
+            Console.WriteLine("Блокировка освобождена.");
         }
     }
 }

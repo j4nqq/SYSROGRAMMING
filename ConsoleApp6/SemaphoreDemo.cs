@@ -3,7 +3,6 @@ namespace SynchronizationPrimitives;
 public class SemaphoreDemo
 {
     private readonly SemaphoreSlim _semaphore = new(2, 2);
-    private readonly int? _failingTaskId = null;
 
     private int _activeTasks;
     private int _maxActiveTasks;
@@ -22,30 +21,32 @@ public class SemaphoreDemo
         {
             await Task.WhenAll(tasks);
         }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("Обработка отменена");
-        }
         catch (Exception ex)
         {
             Console.WriteLine($"Ошибка выполнения: {ex.Message}");
         }
 
+        Console.WriteLine();
         Console.WriteLine($"Максимум одновременных задач: {_maxActiveTasks}");
         Console.WriteLine($"Свободных разрешений: {_semaphore.CurrentCount}");
 
+        Console.WriteLine();
+        Console.WriteLine("Проверка повторного использования:");
+
         await ProcessAsync(99, CancellationToken.None);
+
+        Console.WriteLine("Проверка завершена.");
     }
 
     private async Task ProcessAsync(int id, CancellationToken token)
     {
-        Console.WriteLine($"Задача {id}: ожидает");
+        Console.WriteLine($"Задача {id}: ожидает разрешения");
 
         bool acquired = await _semaphore.WaitAsync(TimeSpan.FromSeconds(2), token);
 
         if (!acquired)
         {
-            Console.WriteLine($"Задача {id}: тайм-аут ожидания");
+            Console.WriteLine($"Задача {id}: не получила разрешение за 2 секунды");
             return;
         }
 
@@ -53,19 +54,19 @@ public class SemaphoreDemo
         {
             int active = Interlocked.Increment(ref _activeTasks);
             UpdateMaximum(active);
-            Console.WriteLine($"Задача {id}: начала работу. Активно: {active}");
+            Console.WriteLine(
+                $"Задача {id}: начала работу. Активно: {active}");
 
             await Task.Delay(Random.Shared.Next(500, 1500), token);
-
-            if (id == _failingTaskId)
-                throw new InvalidOperationException($"Ошибка задания №{id}");
 
             Console.WriteLine($"Задача {id}: завершена");
         }
         finally
         {
             Interlocked.Decrement(ref _activeTasks);
+
             _semaphore.Release();
+            Console.WriteLine($"Задача {id}: освободила разрешение");
         }
     }
 
@@ -80,6 +81,12 @@ public class SemaphoreDemo
             if (current <= previous)
                 return;
 
-        } while (Interlocked.CompareExchange(ref _maxActiveTasks, current, previous) != previous);
+        } while (
+            Interlocked.CompareExchange(
+                ref _maxActiveTasks,
+                current,
+                previous
+            ) != previous
+        );
     }
 }
