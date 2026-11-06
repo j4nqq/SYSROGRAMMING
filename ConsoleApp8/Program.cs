@@ -16,6 +16,25 @@ internal class Program
         Check("Один элемент (не делится)", new[] { 7 });
         Check("Пустой массив", Array.Empty<int>());
 
+        try
+        {
+            Calculator.CalculateSequential(null!);
+        }
+        catch (ArgumentNullException ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine($"Последовательно: {ex.GetType().Name}, параметр: {ex.ParamName}");
+        }
+
+        try
+        {
+            Calculator.CalculateParallel(null!);
+        }
+        catch (ArgumentNullException ex)
+        {
+            Console.WriteLine($"Параллельно:     {ex.GetType().Name}, параметр: {ex.ParamName}");
+        }
+
         Console.WriteLine();
         Console.WriteLine("Работа завершена.");
     }
