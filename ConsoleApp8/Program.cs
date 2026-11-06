@@ -35,6 +35,8 @@ internal class Program
             Console.WriteLine($"Параллельно:     {ex.GetType().Name}, параметр: {ex.ParamName}");
         }
 
+        CompareWrong(5_000_000);
+
         Console.WriteLine();
         Console.WriteLine("Работа завершена.");
     }
@@ -49,5 +51,22 @@ internal class Program
         Console.WriteLine($"Последовательно: {sequential}");
         Console.WriteLine($"Параллельно:     {parallel}");
         Console.WriteLine($"Совпадают:       {sequential == parallel}");
+    }
+
+    static void CompareWrong(int size)
+    {
+        int[] numbers = DataGenerator.Generate(size);
+
+        CalculationResult correct = Calculator.CalculateParallel(numbers);
+
+        Console.WriteLine();
+        Console.WriteLine($"Сравнение с ошибочным вариантом, размер: {size:N0}");
+        Console.WriteLine($"Правильный:  {correct}");
+
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            CalculationResult wrong = WrongCalculator.CalculateParallelWrong(numbers);
+            Console.WriteLine($"Ошибочный {attempt}: {wrong}, совпадает: {wrong == correct}");
+        }
     }
 }
