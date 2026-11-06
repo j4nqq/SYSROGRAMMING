@@ -11,7 +11,7 @@ public static class Calculator
 
         foreach (int number in numbers)
         {
-            if (number % 7 == 0)
+            if (number % 13 == 0)
             {
                 sum += number;
                 count++;
@@ -51,7 +51,7 @@ public static class Calculator
             {
                 int number = numbers[i];
 
-                if (number % 7 == 0)
+                if (number % 13 == 0)
                 {
                     local.LocalSum += number;
                     local.LocalCount++;
