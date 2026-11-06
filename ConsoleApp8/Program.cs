@@ -14,6 +14,7 @@ internal class Program
 
         Check("Один элемент (делится)", new[] { 26 });
         Check("Один элемент (не делится)", new[] { 7 });
+        Check("Пустой массив", Array.Empty<int>());
 
         Console.WriteLine();
         Console.WriteLine("Работа завершена.");
