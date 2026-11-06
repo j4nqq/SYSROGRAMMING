@@ -1,11 +1,17 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 
 namespace ParallelComputingLab;
 
-// Класс проводит измерения и выводит медианное время.
+public sealed record ComparisonReport(
+    int Size,
+    double Sequential,
+    Dictionary<int, double> Parallel);
+
 public static class BenchmarkRunner
 {
-    private const int MeasurementCount = 5;
+    private const int MeasurementCount = 10;
+
+    public static readonly int[] Degrees = { 1, 2, 3, 4, -1 };
 
     public static void Run(int[] numbers)
     {
@@ -14,7 +20,6 @@ public static class BenchmarkRunner
         Console.WriteLine();
         Console.WriteLine($"Размер массива: {numbers.Length:N0}");
 
-        // Прогрев обеих реализаций.
         Calculator.CalculateSequential(numbers);
         Calculator.CalculateParallel(numbers);
 
@@ -43,17 +48,79 @@ public static class BenchmarkRunner
             parallelTimes.Add(parallel.ElapsedMilliseconds);
         }
 
-        Console.WriteLine(
-            $"Сумма:           {expectedResult!.Sum:N0}");
-        Console.WriteLine(
-            $"Количество:      {expectedResult.Count:N0}");
-        Console.WriteLine(
-            $"Последовательно: {Median(sequentialTimes):F3} мс");
-        Console.WriteLine(
-            $"Параллельно:     {Median(parallelTimes):F3} мс");
+        Console.WriteLine($"Сумма:           {expectedResult!.Sum:N0}");
+        Console.WriteLine($"Количество:      {expectedResult.Count:N0}");
+        Console.WriteLine($"Максимум:        {expectedResult.Max}");
+        Console.WriteLine($"Последовательно: {Median(sequentialTimes):F3} мс");
+        Console.WriteLine($"Параллельно:     {Median(parallelTimes):F3} мс");
     }
 
-    // Измеряет время выполнения переданной операции.
+    public static ComparisonReport CompareParallelism(int[] numbers)
+    {
+        ArgumentNullException.ThrowIfNull(numbers);
+
+        Console.WriteLine();
+        Console.WriteLine($"Размер массива: {numbers.Length:N0}");
+        Console.WriteLine(
+            $"{"Степень параллелизма",20} | {"Время, мс",10} | {"Ускорение",9} | Совпадает");
+        Console.WriteLine(new string('-', 62));
+
+        CalculationResult expected = Calculator.CalculateSequential(numbers);
+
+        foreach (int degree in Degrees)
+        {
+            Calculator.CalculateParallel(numbers, degree);
+        }
+
+        double sequentialTime = MeasureMedian(
+            () => Calculator.CalculateSequential(numbers),
+            expected);
+
+        Console.WriteLine(
+            $"{"Последовательно",20} | {sequentialTime,10:F3} | {1.0,9:F2} | да");
+
+        var parallelTimes = new Dictionary<int, double>();
+
+        foreach (int degree in Degrees)
+        {
+            double time = MeasureMedian(
+                () => Calculator.CalculateParallel(numbers, degree),
+                expected);
+
+            parallelTimes[degree] = time;
+
+            Console.WriteLine(
+                $"{degree,20} | {time,10:F3} | {sequentialTime / time,9:F2} | да");
+        }
+
+        return new ComparisonReport(
+            numbers.Length,
+            sequentialTime,
+            parallelTimes);
+    }
+
+    private static double MeasureMedian(
+        Func<CalculationResult> action,
+        CalculationResult expected)
+    {
+        var times = new List<double>();
+
+        for (int i = 0; i < MeasurementCount; i++)
+        {
+            var measurement = Measure(action);
+
+            if (measurement.Result != expected)
+            {
+                throw new InvalidOperationException(
+                    "Результат варианта не совпал с последовательным.");
+            }
+
+            times.Add(measurement.ElapsedMilliseconds);
+        }
+
+        return Median(times);
+    }
+
     public static (CalculationResult Result, double ElapsedMilliseconds)
         Measure(Func<CalculationResult> action)
     {
