@@ -10,13 +10,21 @@ public static class GameEventGenerator
         "LevelComplete"
     };
 
+    // eventsPerSecond - сколько событий получают одинаковое время.
+    // П2, TODO 7: значение больше 1 создаёт несколько событий с одним Timestamp.
     public static List<GameEvent> Generate(
         int count,
-        int seed = 12345)
+        int seed = 12345,
+        int eventsPerSecond = 1)
     {
         if (count < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(count));
+        }
+
+        if (eventsPerSecond < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(eventsPerSecond));
         }
 
         // Генератор тестовых данных с фиксированным seed.
@@ -42,7 +50,7 @@ public static class GameEventGenerator
                 PlayerId: random.Next(1, 101),
                 Type: type,
                 Points: points,
-                Timestamp: start.AddSeconds(i)));
+                Timestamp: start.AddSeconds(i / eventsPerSecond)));
         }
 
         return events;

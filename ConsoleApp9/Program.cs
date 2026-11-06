@@ -161,6 +161,7 @@ internal class Program
         Console.WriteLine($"  Записей: {plinq.Count}, LINQ и PLINQ совпадают: {linq.SequenceEqual(plinq)}");
     }
 
+    // Типичная ошибка: побочные эффекты и её исправление.
     static void DemoSideEffects(List<GameEvent> events)
     {
         Console.WriteLine();

@@ -6,10 +6,17 @@ public sealed record EventSummary(
     int KillCount,
     int DeathCount);
 
+public sealed record EventTypeStatistics(
+    string Type,
+    int Count);
+
+public sealed record LootSummary(
+    int LootCount,
+    long LootPoints);
+
 // LINQ.
 public static partial class GameEventAnalyzer
 {
-    // П1, TODO 1 и TODO 3, TODO 4.
     public static List<PlayerStatistics> AnalyzeWithLinq(
         IEnumerable<GameEvent> events)
     {
@@ -29,12 +36,8 @@ public static partial class GameEventAnalyzer
 }
 
 // PLINQ.
-// Для учебного проекта это удобный пример,
-// но при очень больших объёмах данных
-// группировка и сортировка могут потребовать значительной памяти и времени.
 public static partial class GameEventAnalyzer
 {
-    // П1, TODO 2 и TODO 3, TODO 4.
     public static List<PlayerStatistics> AnalyzeWithPlinq(
         IEnumerable<GameEvent> events)
     {
@@ -62,7 +65,6 @@ public static partial class GameEventAnalyzer
 public static partial class GameEventAnalyzer
 {
     // Неправильный вариант: несколько потоков одновременно меняют List<int>.
-    // Возможны потерянные элементы, испорченное состояние списка и исключения.
     public static List<int> GetPlayerIdsWrong(
         IEnumerable<GameEvent> events)
     {
@@ -137,6 +139,36 @@ public static partial class GameEventAnalyzer
             .ThenBy(e => e.Id)
             .ToList();
     }
+
+    // TODO 6: AsOrdered вместе с OrderBy. OrderBy сам задаёт порядок результата,
+    // поэтому итоговый порядок должен совпасть с запросом без AsOrdered.
+    public static List<GameEvent> GetKillsSortedByTimeWithAsOrdered(
+        IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return events
+            .AsParallel()
+            .AsOrdered()
+            .Where(e => e.Type == "Kill")
+            .OrderBy(e => e.Timestamp)
+            .ThenBy(e => e.Id)
+            .ToList();
+    }
+
+    // TODO 8: сортировка без ThenBy. Если у нескольких событий одинаковое время,
+    // порядок между ними не определён, результат может отличаться от запуска к запуску.
+    public static List<GameEvent> GetKillsSortedByTimeWithoutThenBy(
+        IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return events
+            .AsParallel()
+            .Where(e => e.Type == "Kill")
+            .OrderBy(e => e.Timestamp)
+            .ToList();
+    }
 }
 
 // Aggregate.
@@ -194,5 +226,78 @@ public static partial class GameEventAnalyzer
         public long TotalPoints { get; set; }
         public int KillCount { get; set; }
         public int DeathCount { get; set; }
+    }
+}
+
+// Дополнительные задания П2.
+public static partial class GameEventAnalyzer
+{
+    // Статистика по типу события, LINQ.
+    // Для подсчёта количества обычного LINQ может быть достаточно: работа над
+    // каждым элементом очень простая (взять Type и увеличить счётчик), групп всего
+    // четыре, поэтому расходы PLINQ на разделение данных и объединение групп
+    // сопоставимы с самим подсчётом.
+    public static List<EventTypeStatistics> AnalyzeByTypeWithLinq(
+        IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return events
+            .GroupBy(e => e.Type)
+            .Select(group => new EventTypeStatistics(group.Key, group.Count()))
+            .OrderBy(x => x.Type, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    // Статистика по типу события, PLINQ.
+    public static List<EventTypeStatistics> AnalyzeByTypeWithPlinq(
+        IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return events
+            .AsParallel()
+            .GroupBy(e => e.Type)
+            .Select(group => new EventTypeStatistics(group.Key, group.Count()))
+            .OrderBy(x => x.Type, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    // Aggregate: количество событий Loot и сумма очков за них.
+    public static LootSummary AnalyzeLootWithAggregate(
+        IEnumerable<GameEvent> events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+
+        return events
+            .AsParallel()
+            .Aggregate(
+                () => new LootAccumulator(),
+                (local, gameEvent) =>
+                {
+                    if (gameEvent.Type == "Loot")
+                    {
+                        local.LootCount++;
+                        local.LootPoints += gameEvent.Points;
+                    }
+
+                    return local;
+                },
+                (first, second) =>
+                {
+                    first.LootCount += second.LootCount;
+                    first.LootPoints += second.LootPoints;
+
+                    return first;
+                },
+                result => new LootSummary(
+                    result.LootCount,
+                    result.LootPoints));
+    }
+
+    private sealed class LootAccumulator
+    {
+        public int LootCount { get; set; }
+        public long LootPoints { get; set; }
     }
 }
