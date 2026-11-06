@@ -4,6 +4,9 @@ internal class Program
 {
     static void Main()
     {
+
+        Console.OutputEncoding = System.Text.Encoding.UTF8;
+
         Console.WriteLine("=== Parallel Computing Lab ===");
 
         int[] numbers = DataGenerator.Generate(
@@ -60,13 +63,13 @@ internal class Program
         CalculationResult correct = Calculator.CalculateParallel(numbers);
 
         Console.WriteLine();
-        Console.WriteLine($"Сравнение с ошибочным вариантом, размер: {size:N0}");
+        Console.WriteLine($"Сравнение с исправленным вариантом, размер: {size:N0}");
         Console.WriteLine($"Правильный:  {correct}");
 
         for (int attempt = 1; attempt <= 5; attempt++)
         {
-            CalculationResult wrong = WrongCalculator.CalculateParallelWrong(numbers);
-            Console.WriteLine($"Ошибочный {attempt}: {wrong}, совпадает: {wrong == correct}");
+            CalculationResult wrong = Calculator.CalculateParallelWrong(numbers);
+            Console.WriteLine($"Попытка {attempt}: {wrong}, совпадает: {wrong == correct}");
         }
     }
 }
