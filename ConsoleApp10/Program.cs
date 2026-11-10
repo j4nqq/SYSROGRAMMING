@@ -41,6 +41,8 @@ internal class Program
         Console.WriteLine("1. Последовательная обработка");
         Console.WriteLine("2. Параллельная обработка");
         Console.WriteLine("3. Демо П1 (задания 3-5: несколько обработчиков, один файл)");
+        Console.WriteLine("4. П2: сравнение производительности (1, 2, 4, 8 обработчиков)");
+        Console.WriteLine("5. П2: сценарий с ошибочным файлом (missing.txt)");
 
         Console.Write("Выберите режим: ");
 
@@ -79,6 +81,42 @@ internal class Program
             case "3":
 
                 await WorkerDemo.RunAsync(tasks);
+                return;
+
+            case "4":
+
+                Console.Write("Сколько раз повторить набор файлов (Enter = 50): ");
+
+                string? repeatInput = Console.ReadLine();
+
+                int repeat = 50;
+
+                if (!string.IsNullOrWhiteSpace(repeatInput) &&
+                    (!int.TryParse(repeatInput, out repeat) || repeat < 1))
+                {
+                    Console.WriteLine("Некорректное значение.");
+                    return;
+                }
+
+                await BenchmarkRunner.RunAsync(tasks, repeat);
+                return;
+
+            case "5":
+
+                var errorTasks = ErrorScenario.CreateTasks(dataDirectory);
+
+                report = await PipelineProcessor.ProcessAsync(
+                    errorTasks,
+                    3);
+
+                PrintReport(report);
+
+                Console.WriteLine();
+                Console.WriteLine(
+                    "Проверка (4 успешно, 1 ошибка, программа не упала): " +
+                    (ErrorScenario.Verify(report) ? "OK" : "НЕ ПРОЙДЕНА"));
+
+                await SaveReportAsync(report);
                 return;
 
             default:
@@ -128,6 +166,27 @@ internal class Program
                     $"{error.FileName}: {error.ErrorType} - {error.Message}");
             }
         }
+
+        PrintWorkerStatistics(report);
+    }
+
+    private static void PrintWorkerStatistics(AnalysisReport report)
+    {
+        Console.WriteLine();
+        Console.WriteLine("========== СТАТИСТИКА WORKERS ==========");
+        Console.WriteLine();
+
+        foreach (var stat in report.WorkerStatistics)
+        {
+            Console.WriteLine(
+                $"Worker {stat.WorkerId}: {stat.Count} заданий");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine(
+            $"Всего обработано: {report.WorkerStatistics.Sum(x => x.Count)}");
+        Console.WriteLine();
+        Console.WriteLine("=======================================");
     }
 
     private static async Task SaveReportAsync(

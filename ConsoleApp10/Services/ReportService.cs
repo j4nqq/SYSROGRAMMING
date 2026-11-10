@@ -25,10 +25,17 @@ public static class ReportService
             ProcessingTimeMs = processingTimeMs,
             Results = results
                 .OrderBy(x => x.FileName)
+                .ThenBy(x => x.TaskId)
                 .ToList(),
-
             Errors = errors
                 .OrderBy(x => x.FileName)
+                .ThenBy(x => x.TaskId)
+                .ToList(),
+            WorkerStatistics = Enumerable
+                .Range(1, workerCount)
+                .Select(id => new WorkerStatistic(
+                    id,
+                    results.Count(x => x.WorkerId == id)))
                 .ToList()
         };
     }

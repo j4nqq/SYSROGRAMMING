@@ -9,7 +9,8 @@ public static class PipelineProcessor
 {
     public static async Task<AnalysisReport> ProcessAsync(
         IEnumerable<FileTask> tasks,
-        int workerCount)
+        int workerCount,
+        bool verbose = true)
     {
         ArgumentNullException.ThrowIfNull(tasks);
 
@@ -44,7 +45,8 @@ public static class PipelineProcessor
                 id,
                 channel.Reader,
                 results,
-                errors))
+                errors,
+                verbose))
             .ToArray();
 
         await Task.WhenAll(workers.Append(producer));
@@ -81,14 +83,18 @@ public static class PipelineProcessor
         int workerId,
         ChannelReader<FileTask> reader,
         ConcurrentBag<FileAnalysisResult> results,
-        ConcurrentBag<FileProcessingError> errors)
+        ConcurrentBag<FileProcessingError> errors,
+        bool verbose)
     {
         await foreach (var task in reader.ReadAllAsync())
         {
             try
             {
-                Console.WriteLine(
-                    $"[WORKER {workerId}] Начал: {task.FilePath}");
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"[WORKER {workerId}] Начал: {task.FilePath}");
+                }
 
                 var result = await FileAnalyzer.AnalyzeAsync(
                     task,
@@ -96,24 +102,25 @@ public static class PipelineProcessor
 
                 results.Add(result);
 
-                Console.WriteLine(
-                    $"[WORKER {workerId}] Завершил: {result.FileName}");
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"[WORKER {workerId}] Завершил: {result.FileName}");
+                }
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 errors.Add(new FileProcessingError(
                     task.Id,
                     Path.GetFileName(task.FilePath),
-                    nameof(IOException),
+                    ex.GetType().Name,
                     ex.Message));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                errors.Add(new FileProcessingError(
-                    task.Id,
-                    Path.GetFileName(task.FilePath),
-                    nameof(UnauthorizedAccessException),
-                    ex.Message));
+
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"[WORKER {workerId}] Ошибка: {Path.GetFileName(task.FilePath)} ({ex.GetType().Name})");
+                }
             }
         }
     }

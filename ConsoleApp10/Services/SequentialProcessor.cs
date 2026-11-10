@@ -6,7 +6,8 @@ namespace FileProcessingPipeline.Services;
 public static class SequentialProcessor
 {
     public static async Task<AnalysisReport> ProcessAsync(
-        IEnumerable<FileTask> tasks)
+        IEnumerable<FileTask> tasks,
+        bool verbose = true)
     {
         var stopwatch = Stopwatch.StartNew();
 
@@ -25,24 +26,25 @@ public static class SequentialProcessor
 
                 results.Add(result);
 
-                Console.WriteLine(
-                    $"[OK] {result.FileName}");
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"[OK] {result.FileName}");
+                }
             }
-            catch (IOException ex)
+            catch (Exception ex)
             {
                 errors.Add(new FileProcessingError(
                     task.Id,
                     Path.GetFileName(task.FilePath),
-                    nameof(IOException),
+                    ex.GetType().Name,
                     ex.Message));
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                errors.Add(new FileProcessingError(
-                    task.Id,
-                    Path.GetFileName(task.FilePath),
-                    nameof(UnauthorizedAccessException),
-                    ex.Message));
+
+                if (verbose)
+                {
+                    Console.WriteLine(
+                        $"[ERR] {Path.GetFileName(task.FilePath)}: {ex.GetType().Name}");
+                }
             }
         }
 
