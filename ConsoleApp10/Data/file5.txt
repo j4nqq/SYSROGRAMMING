@@ -1,0 +1,3 @@
+Producer creates jobs.
+Consumer processes jobs.
+Channel connects them.

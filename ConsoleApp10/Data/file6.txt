@@ -1,0 +1,4 @@
+Worker pool
+runs several workers
+and each takes the next job
+when it becomes free.
