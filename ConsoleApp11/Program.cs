@@ -4,7 +4,7 @@ namespace ConsoleApp11;
 
 internal class Program
 {
-    private static void Main()
+    private static async Task Main()
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
@@ -57,6 +57,85 @@ internal class Program
         Console.WriteLine();
         Console.WriteLine("5. Поколения GC");
         GcGenerationsDemo.Run();
+
+        string testPath = Path.Combine(
+            dataDirectory,
+            "test.txt");
+
+        File.Delete(testPath);
+
+        Console.WriteLine();
+        Console.WriteLine("6. FileStorage: запись и чтение");
+
+        using (var storage = new FileStorage(testPath))
+        {
+            storage.Write("Hello");
+            Console.WriteLine(storage.Read());
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("7. Использование после Dispose");
+
+        var disposedStorage = new FileStorage(testPath);
+        disposedStorage.Dispose();
+
+        try
+        {
+            disposedStorage.Read();
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Console.WriteLine($"Read: {ex.GetType().Name}");
+        }
+
+        try
+        {
+            disposedStorage.Write("text");
+        }
+        catch (ObjectDisposedException ex)
+        {
+            Console.WriteLine($"Write: {ex.GetType().Name}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("8. Повторный Dispose");
+
+        var storage3 = new FileStorage(testPath);
+
+        storage3.Write("Hello");
+
+        storage3.Dispose();
+        storage3.Dispose();
+        storage3.Dispose();
+
+        Console.WriteLine("Исключений нет.");
+
+        Console.WriteLine();
+        Console.WriteLine("9. Владение ресурсом и leaveOpen");
+
+        using (var stream = new FileStream(
+            testPath,
+            FileMode.OpenOrCreate,
+            FileAccess.ReadWrite))
+        {
+            Console.WriteLine(StreamConsumer.ReadAll(stream));
+            Console.WriteLine($"Поток всё ещё открыт: {stream.CanRead}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("10. IAsyncDisposable");
+
+        string asyncPath = Path.Combine(
+            dataDirectory,
+            "async.txt");
+
+        File.Delete(asyncPath);
+
+        await using (var asyncStorage = new AsyncFileStorage(asyncPath))
+        {
+            await asyncStorage.WriteAsync("Асинхронная запись.");
+            Console.WriteLine(await asyncStorage.ReadAsync());
+        }
 
         Console.WriteLine();
         Console.WriteLine("Работа программы завершена.");
