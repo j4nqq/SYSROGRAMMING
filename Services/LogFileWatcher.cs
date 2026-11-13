@@ -3,6 +3,7 @@
 public sealed class LogFileWatcher : IDisposable
 {
     private readonly FileSystemWatcher _watcher;
+    private bool _disposed;
 
     public event EventHandler<string>? FileChanged;
     public event EventHandler<Exception>? WatcherError;
@@ -23,7 +24,16 @@ public sealed class LogFileWatcher : IDisposable
 
     public void Start()
     {
+        ObjectDisposedException.ThrowIf(_disposed, this);
         _watcher.EnableRaisingEvents = true;
+    }
+
+    public void Stop()
+    {
+        if (!_disposed)
+        {
+            _watcher.EnableRaisingEvents = false;
+        }
     }
 
     private void OnChanged(object sender, FileSystemEventArgs e)
@@ -38,6 +48,13 @@ public sealed class LogFileWatcher : IDisposable
 
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+
+        Stop();
+        _disposed = true;
         _watcher.Changed -= OnChanged;
         _watcher.Error -= OnError;
         _watcher.Dispose();

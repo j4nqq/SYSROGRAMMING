@@ -170,7 +170,44 @@ public sealed class ProjectService
 
         // TODO 5: Обрабатывать новые записи через фиксированных worker-ов.
 
-        Console.WriteLine("TODO 5");
+        //Console.WriteLine("TODO 5");
+        //Console.WriteLine();
+
+        //var statistics = new LogStatistics();
+        //statistics.Add(LogLevel.Info, infoCount);
+        //statistics.Add(LogLevel.Warning, warningCount);
+        //statistics.Add(LogLevel.Error, errorCount);
+        //statistics.Add(LogLevel.Unknown, unknownCount);
+        //statistics.AddSkipped(skippedCount);
+
+        //var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
+        //using var changes = new BlockingCollection<string>();
+        //using var entries = new BlockingCollection<LogEntry>();
+
+        //Task[] workers = new Task[WorkerCount];
+        //for (int i = 0; i < WorkerCount; i++)
+        //{
+        //    int workerId = i + 1;
+        //    workers[i] = Task.Run(() => ProcessEntries(workerId, entries, statistics));
+        //}
+
+        //using var watcher = new LogFileWatcher(logFilePath);
+        //watcher.FileChanged += (_, path) => changes.Add(path);
+        //watcher.WatcherError += (_, ex) =>
+        //    Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
+        //watcher.Start();
+
+        //Task handler = Task.Run(() => HandleChanges(changes, tailReader, entries, statistics));
+
+        //Console.WriteLine("Наблюдение запущено.");
+        //Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+        //Console.ReadLine();
+
+        //PrintStatistics(statistics);
+
+        // TODO 6: Корректно завершать наблюдатель и освобождать ресурсы.
+
+        Console.WriteLine("TODO 6");
         Console.WriteLine();
 
         var statistics = new LogStatistics();
@@ -192,20 +229,42 @@ public sealed class ProjectService
         }
 
         using var watcher = new LogFileWatcher(logFilePath);
-        watcher.FileChanged += (_, path) => changes.Add(path);
+        watcher.FileChanged += (_, path) =>
+        {
+            try
+            {
+                changes.Add(path);
+            }
+            catch (InvalidOperationException)
+            {
+                Console.WriteLine("Наблюдатель остановлен, событие пропущено.");
+            }
+        };
         watcher.WatcherError += (_, ex) =>
             Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
         watcher.Start();
 
         Task handler = Task.Run(() => HandleChanges(changes, tailReader, entries, statistics));
 
-        Console.WriteLine("Наблюдение запущено.");
-        Console.WriteLine("Нажмите Enter для остановки наблюдения.");
-        Console.ReadLine();
+        try
+        {
+            Console.WriteLine("Наблюдение запущено.");
+            Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+            Console.ReadLine();
+        }
+        finally
+        {
+            watcher.Stop();
+
+            changes.CompleteAdding();
+            await handler;
+
+            entries.CompleteAdding();
+            await Task.WhenAll(workers);
+        }
 
         PrintStatistics(statistics);
 
-        // TODO 6: Корректно завершать наблюдатель и освобождать ресурсы.
         // TODO 7: Вынести обработку записей в отдельную DLL.
         // TODO 8: Добавить bounded Channel между наблюдателем и обработчиками.
         // TODO 9: Сохранять счётчики в реестре Windows.
@@ -216,10 +275,10 @@ public sealed class ProjectService
     }
 
     private static void HandleChanges(
-        BlockingCollection<string> changes,
-        LogTailReader tailReader,
-        BlockingCollection<LogEntry> entries,
-        LogStatistics statistics)
+       BlockingCollection<string> changes,
+       LogTailReader tailReader,
+       BlockingCollection<LogEntry> entries,
+       LogStatistics statistics)
     {
         foreach (string _ in changes.GetConsumingEnumerable())
         {
