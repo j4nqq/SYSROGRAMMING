@@ -98,6 +98,21 @@ public sealed class ProjectService
         Console.WriteLine();
 
         // TODO 2: Подписаться на изменения файла через FileSystemWatcher.
+
+        Console.WriteLine("TODO 2");
+        Console.WriteLine();
+
+        using var watcher = new LogFileWatcher(logFilePath);
+        watcher.FileChanged += (_, path) =>
+            Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] Файл изменён: {path}");
+        watcher.WatcherError += (_, ex) =>
+            Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
+        watcher.Start();
+
+        Console.WriteLine("Наблюдение запущено. Допишите строку в журнал и сохраните файл.");
+        Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+        Console.ReadLine();
+
         // TODO 3: Безопасно передавать события наблюдателя в обработчик.
         // TODO 4: Считать количество сообщений каждого уровня потокобезопасно.
         // TODO 5: Обрабатывать новые записи через фиксированных worker-ов.
