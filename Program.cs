@@ -118,8 +118,36 @@ public sealed class ProjectService
         // TODO 3: Безопасно передавать события наблюдателя в обработчик.
 
 
-        Console.WriteLine("TODO 3");
+        //Console.WriteLine("TODO 3");
+        //Console.WriteLine();
+
+        //var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
+        //using var changes = new BlockingCollection<string>();
+
+        //using var watcher = new LogFileWatcher(logFilePath);
+        //watcher.FileChanged += (_, path) => changes.Add(path);
+        //watcher.WatcherError += (_, ex) =>
+        //    Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
+        //watcher.Start();
+
+        //Task handler = Task.Run(() => HandleChanges(changes, tailReader));
+
+        //Console.WriteLine("Наблюдение запущено.");
+        //Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+        //Console.ReadLine();
+
+
+        // TODO 4: Считать количество сообщений каждого уровня потокобезопасно.
+
+        Console.WriteLine("TODO 4");
         Console.WriteLine();
+
+        var statistics = new LogStatistics();
+        statistics.Add(LogLevel.Info, infoCount);
+        statistics.Add(LogLevel.Warning, warningCount);
+        statistics.Add(LogLevel.Error, errorCount);
+        statistics.Add(LogLevel.Unknown, unknownCount);
+        statistics.AddSkipped(skippedCount);
 
         var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
         using var changes = new BlockingCollection<string>();
@@ -130,14 +158,14 @@ public sealed class ProjectService
             Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
         watcher.Start();
 
-        Task handler = Task.Run(() => HandleChanges(changes, tailReader));
+        Task handler = Task.Run(() => HandleChanges(changes, tailReader, statistics));
 
-        Console.WriteLine("Наблюдение запущено.");
+        Console.WriteLine("Наблюдение запущено. Допишите строку в журнал и сохраните файл.");
         Console.WriteLine("Нажмите Enter для остановки наблюдения.");
         Console.ReadLine();
 
+        PrintStatistics(statistics);
 
-        // TODO 4: Считать количество сообщений каждого уровня потокобезопасно.
         // TODO 5: Обрабатывать новые записи через фиксированных worker-ов.
         // TODO 6: Корректно завершать наблюдатель и освобождать ресурсы.
         // TODO 7: Вынести обработку записей в отдельную DLL.
@@ -149,7 +177,10 @@ public sealed class ProjectService
         await Task.CompletedTask;
     }
 
-    private static void HandleChanges(BlockingCollection<string> changes, LogTailReader tailReader)
+    private static void HandleChanges(
+        BlockingCollection<string> changes,
+        LogTailReader tailReader,
+        LogStatistics statistics)
     {
         foreach (string _ in changes.GetConsumingEnumerable())
         {
@@ -161,8 +192,11 @@ public sealed class ProjectService
 
                     if (entry is null)
                     {
+                        statistics.IncrementSkipped();
                         continue;
                     }
+
+                    statistics.Increment(entry.Level);
 
                     Console.WriteLine(
                         $"[{entry.Timestamp:HH:mm:ss}] " +
@@ -175,5 +209,17 @@ public sealed class ProjectService
                 Console.WriteLine($"Ошибка чтения журнала: {ex.Message}");
             }
         }
+    }
+
+    private static void PrintStatistics(LogStatistics statistics)
+    {
+        Console.WriteLine();
+        Console.WriteLine("--- Итоги наблюдения ---");
+        Console.WriteLine($"INFO:    {statistics.Get(LogLevel.Info)}");
+        Console.WriteLine($"WARNING: {statistics.Get(LogLevel.Warning)}");
+        Console.WriteLine($"ERROR:   {statistics.Get(LogLevel.Error)}");
+        Console.WriteLine($"UNKNOWN: {statistics.Get(LogLevel.Unknown)}");
+        Console.WriteLine($"Пропущено строк: {statistics.Skipped}");
+        Console.WriteLine();
     }
 }
