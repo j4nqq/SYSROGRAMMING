@@ -397,6 +397,23 @@ public sealed class ProjectService
 
         // TODO 10: Экспортировать статистику в JSON.
 
+        Console.WriteLine("TODO 10");
+        string jsonPath = Path.Combine(dataDirectory, "statistics.json");
+        try
+        {
+            await StatisticsExporter.ExportAsync(statistics, jsonPath);
+            Console.WriteLine($"Статистика экспортирована: {jsonPath}");
+        }
+        catch (IOException ex)
+        {
+            Console.WriteLine($"Не удалось записать JSON: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            Console.WriteLine($"Нет доступа к файлу JSON: {ex.Message}");
+        }
+        Console.WriteLine();
+
         Console.WriteLine(" ");
         await Task.CompletedTask;
     }
