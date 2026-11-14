@@ -24,6 +24,7 @@ internal static class Program
 public sealed class ProjectService
 {
     private const int WorkerCount = 3;
+    private const int ChannelCapacity = 10;
 
     public async Task RunAsync()
     {
@@ -267,7 +268,59 @@ public sealed class ProjectService
 
         // TODO 7: Вынести обработку записей в отдельную DLL.
 
-        Console.WriteLine("TODO 7");
+        //Console.WriteLine("TODO 7");
+        //Console.WriteLine();
+
+        //var statistics = new LogStatistics();
+        //statistics.Add(LogLevel.Info, infoCount);
+        //statistics.Add(LogLevel.Warning, warningCount);
+        //statistics.Add(LogLevel.Error, errorCount);
+        //statistics.Add(LogLevel.Unknown, unknownCount);
+        //statistics.AddSkipped(skippedCount);
+
+        //var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
+        //using var changes = new BlockingCollection<string>();
+        //using var processor = new LogEntryProcessor(WorkerCount, statistics, PrintEntry);
+
+        //using var watcher = new LogFileWatcher(logFilePath);
+        //watcher.FileChanged += (_, path) =>
+        //{
+        //    try
+        //    {
+        //        changes.Add(path);
+        //    }
+        //    catch (InvalidOperationException)
+        //    {
+        //        Console.WriteLine("Наблюдатель остановлен, событие пропущено.");
+        //    }
+        //};
+        //watcher.WatcherError += (_, ex) =>
+        //    Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
+        //watcher.Start();
+
+        //Task handler = Task.Run(() => HandleChanges(changes, tailReader, processor, statistics));
+
+        //try
+        //{
+        //    Console.WriteLine("Наблюдение запущено.");
+        //    Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+        //    Console.ReadLine();
+        //}
+        //finally
+        //{
+        //    watcher.Stop();
+
+        //    changes.CompleteAdding();
+        //    await handler;
+
+        //    await processor.CompleteAsync();
+        //}
+
+        //PrintStatistics(statistics);
+
+        // TODO 8: Добавить bounded Channel между наблюдателем и обработчиками.
+
+        Console.WriteLine("TODO 8");
         Console.WriteLine();
 
         var statistics = new LogStatistics();
@@ -279,7 +332,7 @@ public sealed class ProjectService
 
         var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
         using var changes = new BlockingCollection<string>();
-        using var processor = new LogEntryProcessor(WorkerCount, statistics, PrintEntry);
+        var processor = new LogEntryProcessor(WorkerCount, ChannelCapacity, statistics, PrintEntry);
 
         using var watcher = new LogFileWatcher(logFilePath);
         watcher.FileChanged += (_, path) =>
@@ -297,7 +350,7 @@ public sealed class ProjectService
             Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
         watcher.Start();
 
-        Task handler = Task.Run(() => HandleChanges(changes, tailReader, processor, statistics));
+        Task handler = Task.Run(() => HandleChangesAsync(changes, tailReader, processor, statistics));
 
         try
         {
@@ -307,20 +360,16 @@ public sealed class ProjectService
         }
         finally
         {
-            // 1. больше не принимаем события от файла
             watcher.Stop();
 
-            // 2. обработчик дочитывает очередь изменений и завершается
             changes.CompleteAdding();
             await handler;
 
-            // 3. worker-ы из DLL дорабатывают оставшиеся записи и завершаются
             await processor.CompleteAsync();
         }
 
         PrintStatistics(statistics);
 
-        // TODO 8: Добавить bounded Channel между наблюдателем и обработчиками.
         // TODO 9: Сохранять счётчики в реестре Windows.
         // TODO 10: Экспортировать статистику в JSON.
 
@@ -328,7 +377,7 @@ public sealed class ProjectService
         await Task.CompletedTask;
     }
 
-    private static void HandleChanges(
+    private static async Task HandleChangesAsync(
         BlockingCollection<string> changes,
         LogTailReader tailReader,
         LogEntryProcessor processor,
@@ -348,7 +397,7 @@ public sealed class ProjectService
                         continue;
                     }
 
-                    processor.Add(entry);
+                    await processor.AddAsync(entry);
                 }
             }
             catch (IOException ex)
