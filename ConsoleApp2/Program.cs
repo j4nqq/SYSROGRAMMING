@@ -371,6 +371,30 @@ public sealed class ProjectService
         PrintStatistics(statistics);
 
         // TODO 9: Сохранять счётчики в реестре Windows.
+
+        Console.WriteLine("TODO 9");
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                RegistryCounterStore.Save(statistics);
+                Console.WriteLine($"Счётчики сохранены в реестре: HKEY_CURRENT_USER\\{RegistryCounterStore.KeyPath}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.WriteLine($"Нет доступа к реестру: {ex.Message}");
+            }
+            catch (System.Security.SecurityException ex)
+            {
+                Console.WriteLine($"Нет доступа к реестру: {ex.Message}");
+            }
+        }
+        else
+        {
+            Console.WriteLine("Реестр Windows недоступен на этой ОС, сохранение пропущено.");
+        }
+        Console.WriteLine();
+
         // TODO 10: Экспортировать статистику в JSON.
 
         Console.WriteLine(" ");
