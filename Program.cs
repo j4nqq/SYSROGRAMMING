@@ -207,7 +207,67 @@ public sealed class ProjectService
 
         // TODO 6: Корректно завершать наблюдатель и освобождать ресурсы.
 
-        Console.WriteLine("TODO 6");
+        //Console.WriteLine("TODO 6");
+        //Console.WriteLine();
+
+        //var statistics = new LogStatistics();
+        //statistics.Add(LogLevel.Info, infoCount);
+        //statistics.Add(LogLevel.Warning, warningCount);
+        //statistics.Add(LogLevel.Error, errorCount);
+        //statistics.Add(LogLevel.Unknown, unknownCount);
+        //statistics.AddSkipped(skippedCount);
+
+        //var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
+        //using var changes = new BlockingCollection<string>();
+        //using var entries = new BlockingCollection<LogEntry>();
+
+        //Task[] workers = new Task[WorkerCount];
+        //for (int i = 0; i < WorkerCount; i++)
+        //{
+        //    int workerId = i + 1;
+        //    workers[i] = Task.Run(() => ProcessEntries(workerId, entries, statistics));
+        //}
+
+        //using var watcher = new LogFileWatcher(logFilePath);
+        //watcher.FileChanged += (_, path) =>
+        //{
+        //    try
+        //    {
+        //        changes.Add(path);
+        //    }
+        //    catch (InvalidOperationException)
+        //    {
+        //        Console.WriteLine("Наблюдатель остановлен, событие пропущено.");
+        //    }
+        //};
+        //watcher.WatcherError += (_, ex) =>
+        //    Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
+        //watcher.Start();
+
+        //Task handler = Task.Run(() => HandleChanges(changes, tailReader, entries, statistics));
+
+        //try
+        //{
+        //    Console.WriteLine("Наблюдение запущено.");
+        //    Console.WriteLine("Нажмите Enter для остановки наблюдения.");
+        //    Console.ReadLine();
+        //}
+        //finally
+        //{
+        //    watcher.Stop();
+
+        //    changes.CompleteAdding();
+        //    await handler;
+
+        //    entries.CompleteAdding();
+        //    await Task.WhenAll(workers);
+        //}
+
+        //PrintStatistics(statistics);
+
+        // TODO 7: Вынести обработку записей в отдельную DLL.
+
+        Console.WriteLine("TODO 7");
         Console.WriteLine();
 
         var statistics = new LogStatistics();
@@ -219,14 +279,7 @@ public sealed class ProjectService
 
         var tailReader = new LogTailReader(logFilePath, new FileInfo(logFilePath).Length);
         using var changes = new BlockingCollection<string>();
-        using var entries = new BlockingCollection<LogEntry>();
-
-        Task[] workers = new Task[WorkerCount];
-        for (int i = 0; i < WorkerCount; i++)
-        {
-            int workerId = i + 1;
-            workers[i] = Task.Run(() => ProcessEntries(workerId, entries, statistics));
-        }
+        using var processor = new LogEntryProcessor(WorkerCount, statistics, PrintEntry);
 
         using var watcher = new LogFileWatcher(logFilePath);
         watcher.FileChanged += (_, path) =>
@@ -244,7 +297,7 @@ public sealed class ProjectService
             Console.WriteLine($"Ошибка наблюдателя: {ex.Message}");
         watcher.Start();
 
-        Task handler = Task.Run(() => HandleChanges(changes, tailReader, entries, statistics));
+        Task handler = Task.Run(() => HandleChanges(changes, tailReader, processor, statistics));
 
         try
         {
@@ -254,18 +307,19 @@ public sealed class ProjectService
         }
         finally
         {
+            // 1. больше не принимаем события от файла
             watcher.Stop();
 
+            // 2. обработчик дочитывает очередь изменений и завершается
             changes.CompleteAdding();
             await handler;
 
-            entries.CompleteAdding();
-            await Task.WhenAll(workers);
+            // 3. worker-ы из DLL дорабатывают оставшиеся записи и завершаются
+            await processor.CompleteAsync();
         }
 
         PrintStatistics(statistics);
 
-        // TODO 7: Вынести обработку записей в отдельную DLL.
         // TODO 8: Добавить bounded Channel между наблюдателем и обработчиками.
         // TODO 9: Сохранять счётчики в реестре Windows.
         // TODO 10: Экспортировать статистику в JSON.
@@ -275,10 +329,10 @@ public sealed class ProjectService
     }
 
     private static void HandleChanges(
-       BlockingCollection<string> changes,
-       LogTailReader tailReader,
-       BlockingCollection<LogEntry> entries,
-       LogStatistics statistics)
+        BlockingCollection<string> changes,
+        LogTailReader tailReader,
+        LogEntryProcessor processor,
+        LogStatistics statistics)
     {
         foreach (string _ in changes.GetConsumingEnumerable())
         {
@@ -294,7 +348,7 @@ public sealed class ProjectService
                         continue;
                     }
 
-                    entries.Add(entry);
+                    processor.Add(entry);
                 }
             }
             catch (IOException ex)
@@ -304,21 +358,13 @@ public sealed class ProjectService
         }
     }
 
-    private static void ProcessEntries(
-        int workerId,
-        BlockingCollection<LogEntry> entries,
-        LogStatistics statistics)
+    private static void PrintEntry(int workerId, LogEntry entry)
     {
-        foreach (LogEntry entry in entries.GetConsumingEnumerable())
-        {
-            statistics.Increment(entry.Level);
-
-            Console.WriteLine(
-                $"[Worker {workerId}] " +
-                $"[{entry.Timestamp:HH:mm:ss}] " +
-                $"[{entry.Level,-7}] " +
-                $"{entry.Message}");
-        }
+        Console.WriteLine(
+            $"[Worker {workerId}] " +
+            $"[{entry.Timestamp:HH:mm:ss}] " +
+            $"[{entry.Level,-7}] " +
+            $"{entry.Message}");
     }
 
     private static void PrintStatistics(LogStatistics statistics)
